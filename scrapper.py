@@ -41,7 +41,7 @@ except Exception as e:
     exit(1)
 
 # Wait for content to load (adjust timeout if needed)
-time.sleep(5)  # This can be adjusted for your network speed
+time.sleep(5)  # Adjust this value based on your network speed
 
 # Extract all PDF links
 pdf_links = []
@@ -56,8 +56,16 @@ except Exception as e:
     print(f"Error extracting PDF links: {e}")
 
 # AWS S3 configuration
-s3_client = boto3.client('s3')
 bucket_name = "my-bucket-chris"
+
+# Initialize S3 client
+try:
+    s3_client = boto3.client('s3')  # Ensure your credentials are configured properly
+    print("Successfully connected to S3.")
+except Exception as e:
+    print(f"Error initializing S3 client: {e}")
+    driver.quit()
+    exit(1)
 
 # Download PDFs and upload them to S3
 if pdf_links:
@@ -65,18 +73,24 @@ if pdf_links:
         try:
             # Get the PDF file content
             response = requests.get(pdf_url)
+            response.raise_for_status()  # Ensure request was successful
+
             file_name = pdf_url.split("/")[-1]
 
             # Upload to S3
             s3_client.put_object(
                 Bucket=bucket_name,
-                Key=f"pdfs/{file_name}",  # Path in S3 bucket (adjust as needed)
-                Body=BytesIO(response.content),
+                Key=f"pdfs/{file_name}",  # Path in S3 bucket
+                Body=response.content,
                 ContentType="application/pdf"
             )
             print(f"Uploaded: {file_name} to S3 bucket {bucket_name}")
+        except requests.exceptions.RequestException as req_err:
+            print(f"Error downloading {pdf_url}: {req_err}")
+        except boto3.exceptions.S3UploadFailedError as s3_err:
+            print(f"Error uploading {pdf_url} to S3: {s3_err}")
         except Exception as e:
-            print(f"Error uploading {pdf_url} to S3: {e}")
+            print(f"Unexpected error: {e}")
 else:
     print("No PDF links found.")
 
