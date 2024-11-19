@@ -1,7 +1,7 @@
 import requests
 from bs4 import BeautifulSoup
 
-url = 'https://example.com/financial-reports'  # Replace with actual URL
+url = 'https://www.cse.lk/pages/company-profile/company-profile.component.html?symbol=JKH.N0000'  # Replace with actual URL
 
 # Fetch page content
 response = requests.get(url)
