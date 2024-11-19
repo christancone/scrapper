@@ -4,8 +4,10 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
 import requests
+import boto3
 import os
 import time
+from io import BytesIO
 
 # Setup Selenium WebDriver with additional options for headless mode
 options = Options()
@@ -53,20 +55,28 @@ try:
 except Exception as e:
     print(f"Error extracting PDF links: {e}")
 
-# Download PDFs
+# AWS S3 configuration
+s3_client = boto3.client('s3')
+bucket_name = "my-bucket-chris"
+
+# Download PDFs and upload them to S3
 if pdf_links:
-    if not os.path.exists("pdfs"):
-        os.makedirs("pdfs")
-    
     for pdf_url in pdf_links:
         try:
+            # Get the PDF file content
             response = requests.get(pdf_url)
-            filename = os.path.join("pdfs", pdf_url.split("/")[-1])
-            with open(filename, "wb") as file:
-                file.write(response.content)
-            print(f"Downloaded: {filename}")
+            file_name = pdf_url.split("/")[-1]
+
+            # Upload to S3
+            s3_client.put_object(
+                Bucket=bucket_name,
+                Key=f"pdfs/{file_name}",  # Path in S3 bucket (adjust as needed)
+                Body=BytesIO(response.content),
+                ContentType="application/pdf"
+            )
+            print(f"Uploaded: {file_name} to S3 bucket {bucket_name}")
         except Exception as e:
-            print(f"Error downloading {pdf_url}: {e}")
+            print(f"Error uploading {pdf_url} to S3: {e}")
 else:
     print("No PDF links found.")
 
