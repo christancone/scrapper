@@ -15,6 +15,9 @@ options.add_argument("--disable-dev-shm-usage")  # Prevent /dev/shm usage
 options.add_argument("--disable-gpu")  # Disable GPU usage (optional for headless)
 options.add_argument("--window-size=1920,1080")  # Set screen size for headless mode
 
+# Set the path to Chrome binary
+options.binary_location = "/usr/bin/google-chrome-stable"
+
 # Initialize the WebDriver
 try:
     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
