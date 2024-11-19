@@ -1,23 +1,41 @@
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
 import requests
-from bs4 import BeautifulSoup
+import os
 
-url = 'https://www.cse.lk/pages/company-profile/company-profile.component.html?symbol=JKH.N0000'  # Replace with actual URL
+# Setup Selenium WebDriver
+options = webdriver.ChromeOptions()
+options.add_argument("--headless")  # Run in headless mode for better performance
+driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 
-# Fetch page content
-response = requests.get(url)
-soup = BeautifulSoup(response.text, 'html.parser')
+url = "https://www.cse.lk/pages/company-profile/company-profile.component.html?symbol=JKH.N0000"
 
-# Find all PDF links
+# Load the page
+driver.get(url)
+
+# Wait for content to load (adjust timeout if needed)
+driver.implicitly_wait(10)
+
+# Extract all PDF links
 pdf_links = []
-for link in soup.find_all('a', href=True):
-    if link['href'].endswith('.pdf'):
-        pdf_links.append(link['href'])
+elements = driver.find_elements(By.TAG_NAME, "a")
+for element in elements:
+    href = element.get_attribute("href")
+    if href and href.endswith(".pdf"):
+        pdf_links.append(href)
 
 # Download PDFs
-for pdf in pdf_links:
-    pdf_url = f"{url}/{pdf}" if not pdf.startswith('http') else pdf
-    pdf_response = requests.get(pdf_url)
-    with open(pdf.split('/')[-1], 'wb') as file:
-        file.write(pdf_response.content)
+if not os.path.exists("pdfs"):
+    os.makedirs("pdfs")
 
-    print(f"Downloaded: {pdf.split('/')[-1]}")
+for pdf_url in pdf_links:
+    response = requests.get(pdf_url)
+    filename = os.path.join("pdfs", pdf_url.split("/")[-1])
+    with open(filename, "wb") as file:
+        file.write(response.content)
+    print(f"Downloaded: {filename}")
+
+# Close the browser
+driver.quit()
