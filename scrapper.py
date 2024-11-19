@@ -7,7 +7,6 @@ import requests
 import boto3
 import os
 import time
-from io import BytesIO
 
 # Setup Selenium WebDriver with additional options for headless mode
 options = Options()
@@ -67,20 +66,35 @@ except Exception as e:
     driver.quit()
     exit(1)
 
-# Download PDFs and upload them to S3
+# Function to check if a file already exists in the S3 bucket
+def file_exists_in_s3(bucket, key):
+    try:
+        s3_client.head_object(Bucket=bucket, Key=key)
+        return True
+    except s3_client.exceptions.ClientError:
+        return False
+
+# Download PDFs and upload them to S3, avoiding duplicates
 if pdf_links:
     for pdf_url in pdf_links:
         try:
+            # Get the file name from the URL
+            file_name = pdf_url.split("/")[-1]
+            s3_key = f"pdfs/{file_name}"
+
+            # Check if the file already exists in the bucket
+            if file_exists_in_s3(bucket_name, s3_key):
+                print(f"File {file_name} already exists in the S3 bucket. Skipping upload.")
+                continue
+
             # Get the PDF file content
             response = requests.get(pdf_url)
             response.raise_for_status()  # Ensure request was successful
 
-            file_name = pdf_url.split("/")[-1]
-
             # Upload to S3
             s3_client.put_object(
                 Bucket=bucket_name,
-                Key=f"pdfs/{file_name}",  # Path in S3 bucket
+                Key=s3_key,  # Path in S3 bucket
                 Body=response.content,
                 ContentType="application/pdf"
             )
