@@ -74,4 +74,35 @@ def process_pdfs():
             print(f"Processing {file_key}...")
 
             # Step 1: Download the PDF from S3
-            pdf_data = download
+            pdf_data = download_pdf_from_s3(bucket_name, file_key)
+            if not pdf_data:
+                print(f"Skipping {file_key} due to download error.")
+                continue
+
+            # Step 2: Extract text from the PDF
+            pdf_text = extract_text_from_pdf(pdf_data)
+            if not pdf_text:
+                print(f"Skipping {file_key} due to text extraction error.")
+                continue
+
+            # Step 3: Analyze text with OpenAI GPT-3
+            analysis = analyze_text_with_openai(pdf_text)
+            print(f"Analysis for {file_key}:\n{analysis}\n")
+
+            # Optionally, save the analysis result to a file in S3
+            try:
+                s3_client.put_object(
+                    Bucket=bucket_name,
+                    Key=f"analysis/{file_key.replace('pdfs/', '').replace('.pdf', '_analysis.txt')}",
+                    Body=analysis,
+                    ContentType="text/plain"
+                )
+                print(f"Saved analysis for {file_key}.")
+            except Exception as e:
+                print(f"Error saving analysis to S3 for {file_key}: {e}")
+
+    except Exception as e:
+        print(f"Error processing PDFs from S3: {e}")
+
+if __name__ == "__main__":
+    process_pdfs()
