@@ -46,15 +46,25 @@ def extract_text_from_pdf(pdf_data):
 
 def analyze_text_with_openai(text):
     """
-    Analyze the extracted PDF text using OpenAI's GPT-3 model.
+    Analyze the extracted PDF text using OpenAI's GPT-3.5 or GPT-4 model.
+
+    Args:
+        text (str): The text to be analyzed.
+
+    Returns:
+        str: Analysis summary from OpenAI.
     """
     try:
-        response = openai.Completion.create(
-            model="text-davinci-003",
-            prompt=f"Analyze the following text and provide a summary:\n\n{text}",
-            max_tokens=500
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",  # Use "gpt-4" if needed
+            messages=[
+                {"role": "system", "content": "You are an AI assistant that provides summaries of documents."},
+                {"role": "user", "content": f"Analyze the following text and provide a summary:\n\n{text}"}
+            ],
+            max_tokens=500,
+            temperature=0.7
         )
-        return response.choices[0].text.strip()
+        return response['choices'][0]['message']['content'].strip()
     except Exception as e:
         print(f"Error analyzing text with OpenAI: {e}")
     return "Unable to analyze text due to an error."
