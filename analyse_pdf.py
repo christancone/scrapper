@@ -4,11 +4,14 @@ import openai
 import os
 from io import BytesIO
 from botocore.exceptions import NoCredentialsError, PartialCredentialsError
-from requests.exceptions import RequestException
+from dotenv import load_dotenv
+
+# Load environment variables from the .env file
+load_dotenv()
 
 # AWS S3 and OpenAI setup
 bucket_name = "my-bucket-chris"
-openai.api_key = "your_openai_api_key"  # Replace with your OpenAI API key
+openai.api_key = os.getenv("OPENAI_API_KEY")  # Get the key from the .env file
 
 # Initialize S3 client
 s3_client = boto3.client('s3')
@@ -52,10 +55,6 @@ def analyze_text_with_openai(text):
             max_tokens=500
         )
         return response.choices[0].text.strip()
-    except RequestException as e:
-        print("Network error while contacting OpenAI API.")
-    except openai.error.OpenAIError as e:
-        print(f"OpenAI API error: {e}")
     except Exception as e:
         print(f"Error analyzing text with OpenAI: {e}")
     return "Unable to analyze text due to an error."
@@ -75,35 +74,4 @@ def process_pdfs():
             print(f"Processing {file_key}...")
 
             # Step 1: Download the PDF from S3
-            pdf_data = download_pdf_from_s3(bucket_name, file_key)
-            if not pdf_data:
-                print(f"Skipping {file_key} due to download error.")
-                continue
-
-            # Step 2: Extract text from the PDF
-            pdf_text = extract_text_from_pdf(pdf_data)
-            if not pdf_text:
-                print(f"Skipping {file_key} due to text extraction error.")
-                continue
-
-            # Step 3: Analyze text with OpenAI GPT-3
-            analysis = analyze_text_with_openai(pdf_text)
-            print(f"Analysis for {file_key}:\n{analysis}\n")
-
-            # Optionally, save the analysis result to a file in S3
-            try:
-                s3_client.put_object(
-                    Bucket=bucket_name,
-                    Key=f"analysis/{file_key.replace('pdfs/', '').replace('.pdf', '_analysis.txt')}",
-                    Body=analysis,
-                    ContentType="text/plain"
-                )
-                print(f"Saved analysis for {file_key}.")
-            except Exception as e:
-                print(f"Error saving analysis to S3 for {file_key}: {e}")
-
-    except Exception as e:
-        print(f"Error processing PDFs from S3: {e}")
-
-if __name__ == "__main__":
-    process_pdfs()
+            pdf_data = download
