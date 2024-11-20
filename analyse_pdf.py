@@ -4,6 +4,7 @@ import openai
 import os
 from io import BytesIO
 from botocore.exceptions import NoCredentialsError, PartialCredentialsError
+from requests.exceptions import RequestException
 
 # AWS S3 and OpenAI setup
 bucket_name = "my-bucket-chris"
@@ -15,13 +16,6 @@ s3_client = boto3.client('s3')
 def download_pdf_from_s3(bucket, key):
     """
     Download a PDF file from S3 and return as a BytesIO object.
-
-    Args:
-        bucket (str): The name of the S3 bucket.
-        key (str): The S3 key for the file.
-
-    Returns:
-        BytesIO: In-memory file-like object containing the PDF data.
     """
     try:
         response = s3_client.get_object(Bucket=bucket, Key=key)
@@ -36,12 +30,6 @@ def download_pdf_from_s3(bucket, key):
 def extract_text_from_pdf(pdf_data):
     """
     Extract text from a PDF file.
-
-    Args:
-        pdf_data (BytesIO): In-memory file-like object containing the PDF data.
-
-    Returns:
-        str: Extracted text from the PDF.
     """
     try:
         reader = PyPDF2.PdfReader(pdf_data)
@@ -56,29 +44,26 @@ def extract_text_from_pdf(pdf_data):
 def analyze_text_with_openai(text):
     """
     Analyze the extracted PDF text using OpenAI's GPT-3 model.
-
-    Args:
-        text (str): The text to be analyzed.
-
-    Returns:
-        str: GPT-3's analysis of the text.
     """
     try:
         response = openai.Completion.create(
-            model="text-davinci-003",  # You can choose a different model if needed
+            model="text-davinci-003",
             prompt=f"Analyze the following text and provide a summary:\n\n{text}",
             max_tokens=500
         )
         return response.choices[0].text.strip()
+    except RequestException as e:
+        print("Network error while contacting OpenAI API.")
+    except openai.error.OpenAIError as e:
+        print(f"OpenAI API error: {e}")
     except Exception as e:
         print(f"Error analyzing text with OpenAI: {e}")
-    return "Error analyzing text."
+    return "Unable to analyze text due to an error."
 
 def process_pdfs():
     """
     Process all PDF files in the S3 bucket, analyze them using GPT-3, and print results.
     """
-    # List all PDF files in the S3 bucket under the 'pdfs/' folder
     try:
         pdf_files = s3_client.list_objects_v2(Bucket=bucket_name, Prefix="pdfs/")
         if 'Contents' not in pdf_files:
@@ -106,13 +91,16 @@ def process_pdfs():
             print(f"Analysis for {file_key}:\n{analysis}\n")
 
             # Optionally, save the analysis result to a file in S3
-            s3_client.put_object(
-                Bucket=bucket_name,
-                Key=f"analysis/{file_key.replace('pdfs/', '').replace('.pdf', '_analysis.txt')}",
-                Body=analysis,
-                ContentType="text/plain"
-            )
-            print(f"Saved analysis for {file_key}.")
+            try:
+                s3_client.put_object(
+                    Bucket=bucket_name,
+                    Key=f"analysis/{file_key.replace('pdfs/', '').replace('.pdf', '_analysis.txt')}",
+                    Body=analysis,
+                    ContentType="text/plain"
+                )
+                print(f"Saved analysis for {file_key}.")
+            except Exception as e:
+                print(f"Error saving analysis to S3 for {file_key}: {e}")
 
     except Exception as e:
         print(f"Error processing PDFs from S3: {e}")
